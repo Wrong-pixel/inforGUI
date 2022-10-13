@@ -151,7 +151,7 @@ class Frame_config(Frame):
         read_ok = cfg.read('config.ini', encoding='utf-8')
         if not read_ok:
             tkinter.messagebox.showinfo(title="info",
-                                        message=f"未在当前目录检测到config.ini，请在config页进行配置，进行查询后回将配置保存到当前目录的config.ini")
+                                        message=f"未在当前目录检测到config.ini，请在config页进行配置，进行查询后会将配置保存到当前目录的config.ini")
             self.fofa_mail = StringVar(value="")
             self.fofa_key = StringVar(value="")
             self.hunter_username = StringVar(value="")
@@ -218,7 +218,7 @@ class Frame_config_fofa(LabelFrame):
         self.tk_label_fofa_key = self.__tk_label_fofa_key()
 
     def __frame(self):
-        self.configure(text="fofa", background="")
+        self.configure(text="fofa")
         self.place(x=10, y=20, width=565, height=80)
 
     def __tk_input_fofa_mail(self):
@@ -255,7 +255,7 @@ class Frame_config_hunter(LabelFrame):
         self.tk_label_hunter_key = self.__tk_label_hunter_key()
 
     def __frame(self):
-        self.configure(text="鹰图", background="")
+        self.configure(text="鹰图")
         self.place(x=10, y=110, width=565, height=80)
 
     def __tk_input_hunter_username(self):
@@ -289,7 +289,7 @@ class Frame_config_weibu(LabelFrame):
         self.tk_label_weibu_key = self.__tk_label_weibu_key()
 
     def __frame(self):
-        self.configure(text="微步", background="")
+        self.configure(text="微步")
         self.place(x=10, y=200, width=565, height=51)
 
     def __tk_input_weibu_key(self):
@@ -313,7 +313,7 @@ class Frame_config_0zero(LabelFrame):
         self.tk_label_0zero_key = self.__tk_label_0zero_key()
 
     def __frame(self):
-        self.configure(text="0zero", background="")
+        self.configure(text="0zero")
         self.place(x=10, y=260, width=565, height=51)
 
     def __tk_input_0zero_key(self):
@@ -337,7 +337,7 @@ class Frame_config_shodan(LabelFrame):
         self.tk_label_shodan_key = self.__tk_label_shodan_key()
 
     def __frame(self):
-        self.configure(text="shodan", background="")
+        self.configure(text="shodan")
         self.place(x=10, y=320, width=565, height=51)
 
     def __tk_input_shodan_key(self):
@@ -361,7 +361,7 @@ class Frame_config_zoomeye(LabelFrame):
         self.tk_label_zoomeye_key = self.__tk_label_zoomeye_key()
 
     def __frame(self):
-        self.configure(text="zoomeye", background="")
+        self.configure(text="zoomeye")
         self.place(x=10, y=380, width=565, height=51)
 
     def __tk_input_zoomeye_key(self):
