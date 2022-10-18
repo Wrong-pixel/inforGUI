@@ -33,7 +33,7 @@ class WinGUI(Tk):
         self.tk_tabs = Tabs_results(self)
 
     def __win(self):
-        self.title("inforgation信息聚合")
+        self.title("inforGUI     Powered by Wrong-pixel")
         # 设置窗口大小、居中
         width = 1000
         height = 550
