@@ -1,9 +1,8 @@
 import threading
 from tkinter import *
-# import ttkbootstrap as ttk
 import tkinter.messagebox
 from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview
-from httpx import get, post
+from httpx import get, post, ReadTimeout
 from base64 import b64encode
 from ipaddress import IPv4Address
 from configparser import ConfigParser
@@ -29,7 +28,7 @@ class WinGUI(Tk):
     def __init__(self):
         super().__init__()
         self.__win()
-        self.tk_input_ip = self.__tk_input_input()
+        self.tk_input_ip = self.__tk_input_ip()
         self.tk_button_search = self.__tk_button_search()
         self.tk_tabs = Tabs_results(self)
 
@@ -45,7 +44,7 @@ class WinGUI(Tk):
         self.resizable(width=False, height=False)
 
     # 主界面输入框
-    def __tk_input_input(self):
+    def __tk_input_ip(self):
         ipt = Entry(self)
         ipt.place(x=670, y=5, width=200, height=30)
         return ipt
@@ -62,6 +61,12 @@ class WinGUI(Tk):
         self.target = self.tk_input_ip.get()
         if self.target == "":
             tkinter.messagebox.showerror(title="error", message="请输入目标!")
+            return
+        # IP格式检查
+        try:
+            IPv4Address(self.target)
+        except:
+            tkinter.messagebox.showerror(title="error", message="IP输入有误！")
             return
         # 为了避免假死，额外启用一个线程执行
         # fofa查询
@@ -96,22 +101,228 @@ class WinGUI(Tk):
             self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = "zoomeye配置缺失，本次不予查询！"
 
     def __get_fofa(self):
-        pass
+        fofa_url = f"https://fofa.info/api/v1/search/all?email={self.tk_tabs.tk_tabs_config.fofa_mail.get()}&key={self.tk_tabs.tk_tabs_config.fofa_key.get()}&qbase64={b64encode(self.target.encode()).decode()}&fields=host,title,country_name,province,city,server,protocol,isp"
+        try:
+            [self.tk_tabs.tk_tabs_fofa.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_fofa.tk_table.get_children()]
+        except:
+            pass
+        try:
+            self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"正在fofa上查询{self.target}的相关信息......"
+            data = get(fofa_url, timeout=10).json()
+            if not data['results']:
+                self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"fofa查询完毕，未查询到相关信息"
+            else:
+                self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"fofa查询完毕，双击可复制所选内容"
+                for item in data['results']:
+                    self.tk_tabs.tk_tabs_fofa.tk_table.insert("", END, values=[item[0], item[1],
+                                                                               item[2] + " " + item[3] + " " + item[4],
+                                                                               item[5], item[6]])
+        except ReadTimeout:
+            self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"查询FOFA信息超时!"
+            return
+        except BaseException:
+            self.tk_tabs.tk_tabs_fofa.tk_label['text'] = "查询FOFA出错!请检查网络及FOFA配置！"
+            return
 
     def __get_hunter(self):
-        pass
+        self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"正在鹰图上查询{self.target}的相关信息......"
+        try:
+            [self.tk_tabs.tk_tabs_hunter.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_hunter.tk_table.get_children()]
+        except:
+            pass
+        words = b64encode(bytes('ip="{}"'.format(self.target).encode())).decode()
+        hunter_url = f"https://hunter.qianxin.com/openApi/search?username={self.tk_tabs.tk_tabs_config.hunter_username.get()}&api-key={self.tk_tabs.tk_tabs_config.hunter_key.get()}&search={words}&page=1&page_size=10&is_web=1"
+        try:
+            res = get(hunter_url, timeout=5).json()
+            if res['code'] != 200:
+                self.tk_tabs.tk_tabs_hunter.tk_label['text'] = "查询鹰图信息超时"
+                return
+            else:
+                use_point = res['data']['consume_quota']
+                left_point = res['data']['rest_quota']
+                try:
+                    self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"鹰图查询完毕！{use_point}， {left_point}，双击可复制所选内容"
+                    for data in res['data']['arr']:
+                        self.tk_tabs.tk_tabs_hunter.tk_table.insert("", END, values=[
+                            data['url'],
+                            data['port'],
+                            str(data['web_title']) if data['web_title'] else "N/A",
+                            data['domain'] if data['domain'] else "N/A",
+                            str(data['status_code']),
+                            data['os'] if data['os'] else "N/A",
+                            data['country'] + data['province'] + data['city'],
+                            data['isp']
+                        ])
+
+                except TypeError as e:
+                    self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"{e}"
+                    return
+
+        except BaseException as e:
+            self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"查询鹰图信息失败!错误信息为：{e}"
+            return
 
     def __get_weibu(self):
-        pass
+        self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"正在微步上查询{self.target}的相关信息......"
+        try:
+            [self.tk_tabs.tk_tabs_weibu.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_weibu.tk_table.get_children()]
+        except:
+            pass
+        weibu_url = "https://api.threatbook.cn/v3/scene/ip_reputation"
+        query = {
+            "apikey": self.tk_tabs.tk_tabs_config.weibu_key.get(),
+            "resource": self.target,
+            "lang": "zh"
+        }
+        try:
+            res = post(url=weibu_url, params=query, timeout=5).json()
+            print(res)
+            data = res['data'][self.target]
+            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询完毕，双击可复制所选内容"
+            target_judgments = ""
+            for item in data['judgments']:
+                target_judgments += item + ","
+            target_tags = ""
+            for item in data['tags_classes']:
+                for tag in item['tags']:
+                    target_tags += tag + ","
+            self.tk_tabs.tk_tabs_weibu.tk_table.insert("", END, values=[
+                data['severity'],
+                target_judgments[:-1],
+                target_tags[:-1],
+                data['basic']['carrier'],
+                data['basic']['location']['country'] + " " + data['basic']['location']['province'] +
+                data['basic']['location']['city'],
+                data['scene'],
+                data['confidence_level']
+            ])
+        except TimeoutError as e:
+            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询失败！错误信息为：{e}"
+            return
+        except KeyError:
+            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询失败！可能是每日API请求次数已达上限"
+            return
+
 
     def __get_0zone(self):
-        pass
+        self.tk_tabs.tk_tabs_0zone.tk_label['text'] = f"正在0zone上查询{self.target}的相关信息......"
+        try:
+            [self.tk_tabs.tk_tabs_0zone.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_0zone.tk_table.get_children()]
+        except:
+            pass
+        url = "https://0.zone/api/data/"
+        query = {
+            "title": f"ip={self.target}",
+            "title_type": "site",
+            "page": 1,
+            "pagesize": 10,
+            "zone_key_id": "{}".format(self.tk_tabs.tk_tabs_config.zone_key.get())
+        }
+        try:
+            data = post(url=url, data=query, timeout=5).json()
+            if data['code'] == 1:
+                self.tk_tabs.tk_tabs_0zone.tk_label['text'] = f"查询出错，错误信息为: {data['message']}"
+                return
+            if not data['data']:
+                self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "没有在0zero平台查询到相关信息!"
+                return
+            self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "微步查询完毕，双击可复制所选内容"
+            for item in data['data']:
+                self.tk_tabs.tk_tabs_0zone.tk_table.insert("", END, values=[
+                    item["ip"] + ":" + item["port"],
+                    item["url"] if item["url"] else "N/A",
+                    item["title"] if item["title"] else "N/A",
+                    item["os"] if item["os"] else "N/A",
+                    item["component"] if item["component"] else "N/A",
+                    item["operator"] if item["operator"] else "N/A",
+                    item["protocol"] if item["protocol"] else "N/A"
+                ])
+        except TimeoutError:
+            self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "查询0zone信息超时"
+            return
+        except BaseException as e:
+            self.tk_tabs.tk_tabs_0zone.tk_label['text'] = f"查询0zone信息失败！错误信息为：{e}"
+            return
 
     def __get_shodan(self):
-        pass
+        self.tk_tabs.tk_tabs_shodan.tk_label['text'] = f"正在shodan上查询{self.target}的相关信息......"
+        try:
+            [self.tk_tabs.tk_tabs_shodan.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_shodan.tk_table.get_children()]
+        except:
+            pass
+        url = f"https://api.shodan.io/shodan/host/{self.target}?key={self.tk_tabs.tk_tabs_config.shodan_key.get()}"
+        try:
+            data = get(url, timeout=5).json()
+            if 'error' in data:
+                self.tk_tabs.tk_tabs_shodan.tk_label['text'] = f"没有在shodan上查询到 {self.target} 的相关信息"
+            else:
+                # ip
+                try:
+                    ip = data['ip_str']
+                except:
+                    ip = "N/A"
+                # 端口
+                try:
+                    target_port = ""
+                    for item in data['ports']:
+                        target_port += str(item) + "、"
+                except:
+                    target_port = "N/A"
+                try:
+                    target_isp = data['isp']
+                except:
+                    target_isp = "N/A"
+                try:
+                    for host in data['domains']:
+                        for domain in data['hostnames']:
+                            self.tk_tabs.tk_tabs_shodan.tk_table.insert("", END, values=[ip, target_port[:-1], host, domain, target_isp])
+                except:
+                    self.tk_tabs.tk_tabs_shodan.tk_table.insert("", END,
+                                                                values=[ip, target_port[:-1], "N/A", "N/A", target_isp])
+                self.tk_tabs.tk_tabs_shodan.tk_label['text'] = "shodan查询完毕，双击可复制所选内容"
+        except TimeoutError:
+            self.tk_tabs.tk_tabs_shodan.tk_label['text'] = "查询shodan信息超时！"
+            return
+        except BaseException as e:
+            self.tk_tabs.tk_tabs_shodan.tk_label['text'] = f"查询shodan信息失败！错误信息为：{e}"
+            return
 
     def __get_zoomeye(self):
-        pass
+        self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = f"正在zoomeye上查询{self.target}的相关信息......"
+        try:
+            [self.tk_tabs.tk_tabs_zoomeye.tk_table.delete(item) for item in
+             self.tk_tabs.tk_tabs_zoomeye.tk_table.get_children()]
+        except:
+            pass
+        url = "https://api.zoomeye.org/host/search?query=%s" % self.target
+        headers = {
+            "API-KEY": self.tk_tabs.tk_tabs_config.zoomeye_key.get()
+        }
+        try:
+            data = get(url=url, headers=headers, timeout=5).json()
+            if data['total'] != 0:
+                for item in data['matches']:
+                    self.tk_tabs.tk_tabs_zoomeye.tk_table.insert("", END, values=[
+                        item['ip'],
+                        str(item['portinfo']['port']) if item['portinfo']['port'] else "",
+                        item['portinfo']['app'] if item['portinfo']['app'] else "",
+                        item['portinfo']['title'][0] if item['portinfo']['title'] is not None else "",
+                        item['portinfo']['service'] if item['portinfo']['service'] else "",
+                    ])
+                self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = "zoomeye查询完毕，双击可复制所选内容"
+            else:
+                self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = f"没有在zoomeye上查询到 {self.target} 的相关信息"
+        except TimeoutError:
+            self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = "查询zoomeye信息超时！"
+            return
+        except BaseException as e:
+            self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = f"查询zoomeye信息失败！错误信息为：{e}"
+            return
 
     def __save_config(self):
         if not cfg.has_section('fofa'):
@@ -144,22 +355,28 @@ class Tabs_results(Notebook):
         self.__frame()
 
     def __frame(self):
-        self.tk_tabs_fofa = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_fofa = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 150, '协议': 50})
         self.add(self.tk_tabs_fofa, text="FOFA")
 
-        self.tk_tabs_hunter = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_hunter = Frame_results(self, attribute={'url': 250, '端口': 50, "网页标题": 150, '域名': 200, '状态码': 60,
+                                                             "操作系统": 70, '归属地': 60, "运营商": 60})
         self.add(self.tk_tabs_hunter, text="鹰图")
 
-        self.tk_tabs_weibu = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_weibu = Frame_results(self,
+                                           attribute={'威胁等级': 70, 'IP类型判断': 230, '威胁类型': 120, '运营商': 120, '地理位置': 120,
+                                                      "场景": 120, "情报可信度": 120})
         self.add(self.tk_tabs_weibu, text="微步")
 
-        self.tk_tabs_0zone = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_0zone = Frame_results(self, attribute={'host': 200, 'url': 250, '网页标题': 230, '操作系统': 70, '服务器': 60,
+                                                            "运营商": 70, "协议": 60})
         self.add(self.tk_tabs_0zone, text="0zone")
 
-        self.tk_tabs_shodan = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_shodan = Frame_results(self,
+                                            attribute={'IP': 100, '开放的端口': 150, '域名': 150, '子域名': 200, '运营商': 320})
         self.add(self.tk_tabs_shodan, text="shodan")
 
-        self.tk_tabs_zoomeye = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 100, '协议': 100})
+        self.tk_tabs_zoomeye = Frame_results(self,
+                                             attribute={'IP': 100, '端口': 50, '服务标题': 250, '应用': 250, '协议': 250, })
         self.add(self.tk_tabs_zoomeye, text="zoomeye")
 
         self.tk_tabs_config = Frame_config(self)
@@ -181,8 +398,15 @@ class Frame_results(Frame):
         self.place(x=10, y=40, width=960, height=480)
 
     def __tk_label(self):
-        label = Label(self)
+        label = Label(
+            self,
+            borderwidth=3,
+            relief="sunken",
+            font=('微软雅黑', 15, 'bold'),
+            anchor="n"
+        )
         label.place(x=10, y=10, width=958, height=30)
+        label.bind('<Double-1>', self.__get_value_label)
         return label
 
     def __tk_table(self):
@@ -195,27 +419,37 @@ class Frame_results(Frame):
             show="headings",
             columns=list(self.attribute),
             yscrollcommand=y_scroll.set,
-            padding=5
+            padding=5,
         )
         for text, width in self.attribute.items():  # 批量设置列属性
-            table.heading(text, text=text, anchor='center')
-            table.column(text, anchor='center', width=width, stretch=False)  # stretch 不自动拉伸
+            table.heading(text, text=text, anchor='w')
+            table.column(text, anchor='w', width=width, stretch=False)  # stretch 不自动拉伸
         y_scroll.config(command=table.yview)
         y_scroll.pack(side=RIGHT, fill=Y)
-        table.place(x=10, y=40, width=955, height=420)
-        table.bind('<Double-1>', self.__get_value)
+        table.place(x=10, y=40, width=950, height=420)
+        table.bind('<Double-1>', self.__get_value_table)
         return table
 
-    def __get_value(self, event):
+    def __get_value_table(self, event):
         root.clipboard_clear()
         selections = self.tk_table.selection()
+        values = {}
         try:
             for row in selections:
                 values = self.tk_table.item(row, 'values')
             column = self.tk_table.identify_column(event.x)
             root.clipboard_append(values[int(column.replace("#", "")) - 1])
-        except UnboundLocalError as e:
-            pass
+            self.tk_label['text'] = f'{values[int(column.replace("#", "")) - 1]}复制成功！' if values[int(column.replace("#",
+                                                                                                                    "")) - 1] != "" else "啥都没有哦"
+        except:
+            return
+
+    def __get_value_label(self, event):
+        try:
+            root.clipboard_clear()
+            root.clipboard_append(self.tk_label['text'])
+        except:
+            return
 
 
 # 配置页的总frame
@@ -251,7 +485,7 @@ zoomeye APIKEY获取地址：https://www.zoomeye.org/profile\n
         read_ok = cfg.read('config.ini', encoding='utf-8')
         if not read_ok:
             tkinter.messagebox.showinfo(title="info",
-                                        message=f"未在当前目录检测到config.ini，请在config页进行配置，进行查询后会将配置保存到当前目录的config.ini")
+                                        message=f"未在当前目录检测到config.ini，请在config页进行配置，进行一次查询后会将配置保存到当前目录的config.ini，之后即可自动读取配置")
             self.fofa_mail = StringVar(value="")
             self.fofa_key = StringVar(value="")
             self.hunter_username = StringVar(value="")
