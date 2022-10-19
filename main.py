@@ -1,7 +1,7 @@
-import threading
+from threading import Thread
 from tkinter import *
-import tkinter.messagebox
-from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview
+from tkinter.messagebox import showinfo, showerror
+from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview, Scrollbar
 from httpx import get, post, ReadTimeout
 from base64 import b64encode
 from ipaddress import IPv4Address
@@ -10,7 +10,7 @@ from configparser import ConfigParser
 cfg = ConfigParser()
 
 
-class MyThread(threading.Thread):
+class MyThread(Thread):
     def __init__(self, func, *args):
         super().__init__()
 
@@ -33,7 +33,7 @@ class WinGUI(Tk):
         self.tk_tabs = Tabs_results(self)
 
     def __win(self):
-        self.title("inforGUI     Powered by Wrong-pixel")
+        self.title("inforGUI信息查询聚合工具     Powered by Wrong-pixel")
         # 设置窗口大小、居中
         width = 1000
         height = 550
@@ -60,13 +60,13 @@ class WinGUI(Tk):
         self.__save_config()
         self.target = self.tk_input_ip.get()
         if self.target == "":
-            tkinter.messagebox.showerror(title="error", message="请输入目标!")
+            showerror(title="error", message="请输入目标!")
             return
         # IP格式检查
         try:
             IPv4Address(self.target)
         except:
-            tkinter.messagebox.showerror(title="error", message="IP输入有误！")
+            showerror(title="error", message="IP输入有误！")
             return
         # 为了避免假死，额外启用一个线程执行
         # fofa查询
@@ -156,8 +156,8 @@ class WinGUI(Tk):
                             data['isp']
                         ])
 
-                except TypeError as e:
-                    self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"{e}"
+                except TypeError:
+                    self.tk_tabs.tk_tabs_hunter.tk_label['text'] = "没有在鹰图上查询到相关信息"
                     return
 
         except BaseException as e:
@@ -205,7 +205,6 @@ class WinGUI(Tk):
         except KeyError:
             self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询失败！可能是每日API请求次数已达上限"
             return
-
 
     def __get_0zone(self):
         self.tk_tabs.tk_tabs_0zone.tk_label['text'] = f"正在0zone上查询{self.target}的相关信息......"
@@ -280,7 +279,9 @@ class WinGUI(Tk):
                 try:
                     for host in data['domains']:
                         for domain in data['hostnames']:
-                            self.tk_tabs.tk_tabs_shodan.tk_table.insert("", END, values=[ip, target_port[:-1], host, domain, target_isp])
+                            self.tk_tabs.tk_tabs_shodan.tk_table.insert("", END,
+                                                                        values=[ip, target_port[:-1], host, domain,
+                                                                                target_isp])
                 except:
                     self.tk_tabs.tk_tabs_shodan.tk_table.insert("", END,
                                                                 values=[ip, target_port[:-1], "N/A", "N/A", target_isp])
@@ -410,7 +411,7 @@ class Frame_results(Frame):
         return label
 
     def __tk_table(self):
-        y_scroll = tkinter.Scrollbar(
+        y_scroll = Scrollbar(
             self,
             orient=VERTICAL,
         )
@@ -484,8 +485,8 @@ zoomeye APIKEY获取地址：https://www.zoomeye.org/profile\n
     def __check_config(self):
         read_ok = cfg.read('config.ini', encoding='utf-8')
         if not read_ok:
-            tkinter.messagebox.showinfo(title="info",
-                                        message=f"未在当前目录检测到config.ini，请在config页进行配置，进行一次查询后会将配置保存到当前目录的config.ini，之后即可自动读取配置")
+            showinfo(title="info",
+                     message=f"未在当前目录检测到config.ini，请在config页进行配置，进行一次查询后会将配置保存到当前目录的config.ini，之后即可自动读取配置")
             self.fofa_mail = StringVar(value="")
             self.fofa_key = StringVar(value="")
             self.hunter_username = StringVar(value="")
