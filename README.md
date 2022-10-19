@@ -6,6 +6,8 @@ python3+tkinter+ttk完成的项目
 
 # 开始使用
 
+## 使用前请安装依赖：pip(3) install -r requirements.txt -i http://pypi.douban.com/simple/
+
 ### 1、首次使用会提示未发现config.ini，需要在配置页进行配置后才能进行正常查询，并将配置自动保存到当前目录的`config.ini`文件下
 
 ![image-20221018165343470](README.assets/image-20221018165343470.png)
