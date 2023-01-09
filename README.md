@@ -5,8 +5,6 @@ python3+tkinter+ttk完成的项目
 ![image-20221018165249920](README.assets/image-20221018165249920.png)
 
 # 开始使用
-## 目前0zone零零信安API暂不可用，结果页面暂时隐藏，计划更新为Quake API，近期上线
-
 ## 使用前请安装依赖：pip(3) install -r requirements.txt -i http://pypi.douban.com/simple/
 
 ### 1、首次使用会提示未发现config.ini，需要在配置页进行配置后才能进行正常查询，并将配置自动保存到当前目录的`config.ini`文件下
