@@ -141,7 +141,7 @@ class WinGUI(Tk):
                             str(data['web_title']) if data['web_title'] else "N/A",
                             data['domain'] if data['domain'] else "N/A",
                             str(data['status_code']),
-                            data['os'] if data['os'] else "N/A",
+                            data['company'] if data['company'] else "N/A",
                             data['country'] + data['province'] + data['city'],
                             data['isp']
                         ])
@@ -349,7 +349,7 @@ class Tabs_results(Notebook):
         self.add(self.tk_tabs_fofa, text="FOFA")
 
         self.tk_tabs_hunter = Frame_results(self, attribute={'url': 250, '端口': 50, "网页标题": 150, '域名': 200, '状态码': 60,
-                                                             "操作系统": 70, '归属地': 60, "运营商": 60})
+                                                             "备案主体": 70, '归属地': 60, "运营商": 60})
         self.add(self.tk_tabs_hunter, text="鹰图")
 
         self.tk_tabs_weibu = Frame_results(self,
