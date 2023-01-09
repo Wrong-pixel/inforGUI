@@ -1,27 +1,16 @@
-from threading import Thread
 from tkinter import *
 from tkinter.messagebox import showinfo, showerror
 from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview, Scrollbar
+from ttkbootstrap.toast import ToastNotification
+from ttkbootstrap.tooltip import ToolTip
 from httpx import get, post, ReadTimeout
 from base64 import b64encode
 from ipaddress import IPv4Address
 from configparser import ConfigParser
+from concurrent.futures import ThreadPoolExecutor
 
 cfg = ConfigParser()
-
-
-class MyThread(Thread):
-    def __init__(self, func, *args):
-        super().__init__()
-
-        self.func = func
-        self.args = args
-
-        self.setDaemon(True)
-        self.start()  # 在这里开始
-
-    def run(self):
-        self.func(*self.args)
+typ = {"1": "domain", "2": "ip"}
 
 
 class WinGUI(Tk):
@@ -68,35 +57,36 @@ class WinGUI(Tk):
         except:
             showerror(title="error", message="IP输入有误！")
             return
-        # 为了避免假死，额外启用一个线程执行
+        # 为了避免假死，使用线程池管理多个线程以提高并发
+        executor = ThreadPoolExecutor()
         # fofa查询
         if self.tk_tabs.tk_tabs_config.fofa_key.get() != "" and self.tk_tabs.tk_tabs_config.fofa_mail.get() != "":
-            MyThread(self.__get_fofa)
+            executor.submit(self.__get_fofa)
         else:
             self.tk_tabs.tk_tabs_fofa.tk_label['text'] = "fofa配置缺失，本次不予查询！"
         # hunter查询
         if self.tk_tabs.tk_tabs_config.hunter_username.get() != "" and self.tk_tabs.tk_tabs_config.hunter_key.get() != "":
-            MyThread(self.__get_hunter)
+            executor.submit(self.__get_hunter)
         else:
             self.tk_tabs.tk_tabs_hunter.tk_label['text'] = "鹰图配置缺失，本次不予查询！"
         # 微步查询
         if self.tk_tabs.tk_tabs_config.weibu_key.get() != "":
-            MyThread(self.__get_weibu)
+            executor.submit(self.__get_weibu)
         else:
             self.tk_tabs.tk_tabs_weibu.tk_label['text'] = "微步配置缺失，本次不予查询！"
         # 0zone查询
         if self.tk_tabs.tk_tabs_config.zone_key.get() != "":
-            MyThread(self.__get_0zone)
+            executor.submit(self.__get_0zone)
         else:
             self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "0zone配置缺失，本次不予查询！"
         # shodan
         if self.tk_tabs.tk_tabs_config.shodan_key.get() != "":
-            MyThread(self.__get_shodan)
+            executor.submit(self.__get_shodan)
         else:
             self.tk_tabs.tk_tabs_shodan.tk_label['text'] = "shodan配置缺失，本次不予查询！"
         # zoomeye
         if self.tk_tabs.tk_tabs_config.zoomeye_key.get() != "":
-            MyThread(self.__get_zoomeye)
+            executor.submit(self.__get_zoomeye)
         else:
             self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = "zoomeye配置缺失，本次不予查询！"
 
@@ -132,7 +122,7 @@ class WinGUI(Tk):
              self.tk_tabs.tk_tabs_hunter.tk_table.get_children()]
         except:
             pass
-        words = b64encode(bytes('ip="{}"'.format(self.target).encode())).decode()
+        words = b64encode(bytes(f'ip="{self.target}"'.encode())).decode()
         hunter_url = f"https://hunter.qianxin.com/openApi/search?username={self.tk_tabs.tk_tabs_config.hunter_username.get()}&api-key={self.tk_tabs.tk_tabs_config.hunter_key.get()}&search={words}&page=1&page_size=10&is_web=1"
         try:
             res = get(hunter_url, timeout=5).json()
@@ -179,7 +169,6 @@ class WinGUI(Tk):
         }
         try:
             res = post(url=weibu_url, params=query, timeout=5).json()
-            print(res)
             data = res['data'][self.target]
             self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询完毕，双击可复制所选内容"
             target_judgments = ""
@@ -219,7 +208,7 @@ class WinGUI(Tk):
             "title_type": "site",
             "page": 1,
             "pagesize": 10,
-            "zone_key_id": "{}".format(self.tk_tabs.tk_tabs_config.zone_key.get())
+            "zone_key_id": f"{self.tk_tabs.tk_tabs_config.zone_key.get()}"
         }
         try:
             data = post(url=url, data=query, timeout=5).json()
@@ -229,7 +218,7 @@ class WinGUI(Tk):
             if not data['data']:
                 self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "没有在0zero平台查询到相关信息!"
                 return
-            self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "微步查询完毕，双击可复制所选内容"
+            self.tk_tabs.tk_tabs_0zone.tk_label['text'] = "0zone查询完毕，双击可复制所选内容"
             for item in data['data']:
                 self.tk_tabs.tk_tabs_0zone.tk_table.insert("", END, values=[
                     item["ip"] + ":" + item["port"],
@@ -371,7 +360,7 @@ class Tabs_results(Notebook):
         self.tk_tabs_0zone = Frame_results(self, attribute={'host': 200, 'url': 250, '网页标题': 230, '操作系统': 70, '服务器': 60,
                                                             "运营商": 70, "协议": 60})
         # 0zone目前会员API已不可用，计划更新为Quake API
-        # self.add(self.tk_tabs_0zone, text="0zone")
+        self.add(self.tk_tabs_0zone, text="0zone")
 
         self.tk_tabs_shodan = Frame_results(self,
                                             attribute={'IP': 100, '开放的端口': 150, '域名': 150, '子域名': 200, '运营商': 320})
@@ -484,7 +473,7 @@ zoomeye APIKEY获取地址：https://www.zoomeye.org/profile\n
         label.place(x=680, y=10, width=295, height=450)
 
     def __check_config(self):
-        read_ok = cfg.read('config.ini', encoding='utf-8')
+        read_ok = cfg.read('cconfig.ini', encoding='utf-8')
         if not read_ok:
             showinfo(title="info",
                      message=f"未在当前目录检测到config.ini，请在config页进行配置，进行一次查询后会将配置保存到当前目录的config.ini，之后即可自动读取配置")
