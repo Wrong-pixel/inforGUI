@@ -370,7 +370,8 @@ class Tabs_results(Notebook):
 
         self.tk_tabs_0zone = Frame_results(self, attribute={'host': 200, 'url': 250, '网页标题': 230, '操作系统': 70, '服务器': 60,
                                                             "运营商": 70, "协议": 60})
-        self.add(self.tk_tabs_0zone, text="0zone")
+        # 0zone目前会员API已不可用，计划更新为Quake API
+        # self.add(self.tk_tabs_0zone, text="0zone")
 
         self.tk_tabs_shodan = Frame_results(self,
                                             attribute={'IP': 100, '开放的端口': 150, '域名': 150, '子域名': 200, '运营商': 320})
