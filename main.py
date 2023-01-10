@@ -1,8 +1,7 @@
 from tkinter import *
 from tkinter.messagebox import showinfo, showerror
-from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview, Scrollbar
-from ttkbootstrap.toast import ToastNotification
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap import Notebook, Button, Entry, StringVar, Treeview, Scrollbar, Combobox
+import socket
 from httpx import get, post, ReadTimeout
 from base64 import b64encode
 from ipaddress import IPv4Address
@@ -10,13 +9,15 @@ from configparser import ConfigParser
 from concurrent.futures import ThreadPoolExecutor
 
 cfg = ConfigParser()
-typ = {"1": "domain", "2": "ip"}
+typ = {"域名": "domain", "IP": "ip"}
 
 
 class WinGUI(Tk):
     def __init__(self):
         super().__init__()
         self.__win()
+        self.__tk_info()
+        self.__tk_selector()
         self.tk_input_ip = self.__tk_input_ip()
         self.tk_button_search = self.__tk_button_search()
         self.tk_tabs = Tabs_results(self)
@@ -32,31 +33,48 @@ class WinGUI(Tk):
         self.geometry(geometry)
         self.resizable(width=False, height=False)
 
+    # 提示框
+    def __tk_info(self):
+        label = Label(self, anchor="nw", wraplength=680, justify="left", font=('微软雅黑', 13, 'bold'),
+                      text="注意，各平台对域名查询存在诸多差异，结果较少时可以分别尝试根域名及子域名")
+        label.place(x=50, y=5, width=600, height=30)
+
+    # 选择框
+    def __tk_selector(self):
+        self.selector = Combobox(self, state="readonly", width=60)
+        self.selector['value'] = ('IP', '域名')
+        # 默认使用IP查询
+        self.selector.current(0)
+        self.selector.place(x=600, y=5, width=60, height=30)
+        return self.selector
+
     # 主界面输入框
     def __tk_input_ip(self):
-        ipt = Entry(self)
-        ipt.place(x=670, y=5, width=200, height=30)
-        return ipt
+        self.ipt = Entry(self)
+        self.ipt.place(x=670, y=5, width=200, height=30)
+        return self.ipt
 
     # 主界面查询按钮
     def __tk_button_search(self):
-        btn = Button(self, text="查询", command=self.__schedule)
-        btn.place(x=880, y=5, width=102, height=30)
-        return btn
+        self.btn = Button(self, text="查询", command=self.__schedule)
+        self.btn.place(x=880, y=5, width=102, height=30)
+        return self.btn
 
     def __schedule(self):
         # 每次进行查询都保存一次config
         self.__save_config()
         self.target = self.tk_input_ip.get()
+        self.method = self.selector.get()
         if self.target == "":
-            showerror(title="error", message="请输入目标!")
+            showerror(title="Error", message="请输入目标!")
             return
-        # IP格式检查
-        try:
-            IPv4Address(self.target)
-        except:
-            showerror(title="error", message="IP输入有误！")
-            return
+        # 如果查询目标选择的是IP，就进行IP格式检查
+        if self.method == "IP":
+            try:
+                IPv4Address(self.target)
+            except:
+                showerror(title="error", message="IP输入有误！")
+                return
         # 为了避免假死，使用线程池管理多个线程以提高并发
         executor = ThreadPoolExecutor()
         # fofa查询
@@ -91,7 +109,10 @@ class WinGUI(Tk):
             self.tk_tabs.tk_tabs_zoomeye.tk_label['text'] = "zoomeye配置缺失，本次不予查询！"
 
     def __get_fofa(self):
-        fofa_url = f"https://fofa.info/api/v1/search/all?email={self.tk_tabs.tk_tabs_config.fofa_mail.get()}&key={self.tk_tabs.tk_tabs_config.fofa_key.get()}&qbase64={b64encode(self.target.encode()).decode()}&fields=host,title,country_name,province,city,server,protocol,isp"
+        word = f"{typ[self.method]}=\"{self.target}\""
+        query = b64encode(word.encode()).decode()
+        fofa_url = f"https://fofa.info/api/v1/search/all?email={self.tk_tabs.tk_tabs_config.fofa_mail.get()}&key={self.tk_tabs.tk_tabs_config.fofa_key.get()}&qbase64={query}&fields=host,ip,title,country_name,province,city,icp,protocol,isp"
+        print(fofa_url)
         try:
             [self.tk_tabs.tk_tabs_fofa.tk_table.delete(item) for item in
              self.tk_tabs.tk_tabs_fofa.tk_table.get_children()]
@@ -105,9 +126,9 @@ class WinGUI(Tk):
             else:
                 self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"fofa查询完毕，双击可复制所选内容"
                 for item in data['results']:
-                    self.tk_tabs.tk_tabs_fofa.tk_table.insert("", END, values=[item[0], item[1],
-                                                                               item[2] + " " + item[3] + " " + item[4],
-                                                                               item[5], item[6]])
+                    self.tk_tabs.tk_tabs_fofa.tk_table.insert("", END, values=[item[0], item[1], item[2],
+                                                                               item[3] + " " + item[4] + " " + item[5],
+                                                                               item[6], item[7]])
         except ReadTimeout:
             self.tk_tabs.tk_tabs_fofa.tk_label['text'] = f"查询FOFA信息超时!"
             return
@@ -122,7 +143,7 @@ class WinGUI(Tk):
              self.tk_tabs.tk_tabs_hunter.tk_table.get_children()]
         except:
             pass
-        words = b64encode(bytes(f'ip="{self.target}"'.encode())).decode()
+        words = b64encode(bytes(f'{typ[self.method]}="{self.target}"'.encode())).decode()
         hunter_url = f"https://hunter.qianxin.com/openApi/search?username={self.tk_tabs.tk_tabs_config.hunter_username.get()}&api-key={self.tk_tabs.tk_tabs_config.hunter_key.get()}&search={words}&page=1&page_size=10&is_web=1"
         try:
             res = get(hunter_url, timeout=5).json()
@@ -149,7 +170,8 @@ class WinGUI(Tk):
                 except TypeError:
                     self.tk_tabs.tk_tabs_hunter.tk_label['text'] = "没有在鹰图上查询到相关信息"
                     return
-
+        except TimeoutError:
+            self.tk_tabs.tk_tabs_hunter.tk_label['text'] = "查询FOFA出错!请检查网络及FOFA配置！"
         except BaseException as e:
             self.tk_tabs.tk_tabs_hunter.tk_label['text'] = f"查询鹰图信息失败!错误信息为：{e}"
             return
@@ -161,9 +183,14 @@ class WinGUI(Tk):
              self.tk_tabs.tk_tabs_weibu.tk_table.get_children()]
         except:
             pass
+        try:
+            ip = socket.gethostbyname(self.tk_tabs.tk_tabs_config.weibu_key.get())
+        except:
+            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"域名解析IP失败，建议从其他结果获取IP后进行查询或前往微步在线查询"
+            return
         weibu_url = "https://api.threatbook.cn/v3/scene/ip_reputation"
         query = {
-            "apikey": self.tk_tabs.tk_tabs_config.weibu_key.get(),
+            "apikey": ip,
             "resource": self.target,
             "lang": "zh"
         }
@@ -188,8 +215,8 @@ class WinGUI(Tk):
                 data['scene'],
                 data['confidence_level']
             ])
-        except TimeoutError as e:
-            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询失败！错误信息为：{e}"
+        except TimeoutError:
+            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = "微步查询超时！"
             return
         except KeyError:
             self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"微步查询失败！可能是每日API请求次数已达上限"
@@ -203,13 +230,22 @@ class WinGUI(Tk):
         except:
             pass
         url = "https://0.zone/api/data/"
-        query = {
-            "title": f"ip={self.target}",
-            "title_type": "site",
-            "page": 1,
-            "pagesize": 10,
-            "zone_key_id": f"{self.tk_tabs.tk_tabs_config.zone_key.get()}"
-        }
+        if self.method == "IP":
+            query = {
+                "title": f"ip={self.target}",
+                "title_type": "site",
+                "page": 1,
+                "pagesize": 10,
+                "zone_key_id": f"{self.tk_tabs.tk_tabs_config.zone_key.get()}"
+            }
+        else:
+            query = {
+                "title": f"url={self.target}",
+                "title_type": "site",
+                "page": 1,
+                "pagesize": 10,
+                "zone_key_id": f"{self.tk_tabs.tk_tabs_config.zone_key.get()}"
+            }
         try:
             data = post(url=url, data=query, timeout=5).json()
             if data['code'] == 1:
@@ -345,12 +381,12 @@ class Tabs_results(Notebook):
         self.__frame()
 
     def __frame(self):
-        self.tk_tabs_fofa = Frame_results(self, attribute={'host': 250, '标题': 250, '地理位置': 200, '服务名': 150, '协议': 50})
-        self.add(self.tk_tabs_fofa, text="FOFA")
-
         self.tk_tabs_hunter = Frame_results(self, attribute={'url': 250, '端口': 50, "网页标题": 150, '域名': 200, '状态码': 60,
-                                                             "备案主体": 70, '归属地': 60, "运营商": 60})
+                                                             "备案主体": 70, '归属地': 60, "运营商": 100})
         self.add(self.tk_tabs_hunter, text="鹰图")
+
+        self.tk_tabs_fofa = Frame_results(self, attribute={'host': 250, 'ip': 150, '标题': 150, '地理位置': 150, 'ICP备案号': 150, '协议': 50})
+        self.add(self.tk_tabs_fofa, text="FOFA")
 
         self.tk_tabs_weibu = Frame_results(self,
                                            attribute={'威胁等级': 70, 'IP类型判断': 230, '威胁类型': 120, '运营商': 120, '地理位置': 120,
