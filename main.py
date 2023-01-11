@@ -183,11 +183,14 @@ class WinGUI(Tk):
              self.tk_tabs.tk_tabs_weibu.tk_table.get_children()]
         except:
             pass
-        try:
-            ip = socket.gethostbyname(self.tk_tabs.tk_tabs_config.weibu_key.get())
-        except:
-            self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"域名解析IP失败，建议从其他结果获取IP后进行查询或前往微步在线查询"
-            return
+        if self.method == "域名":
+            try:
+                ip = socket.gethostbyname(self.tk_tabs.tk_tabs_config.weibu_key.get())
+            except:
+                self.tk_tabs.tk_tabs_weibu.tk_label['text'] = f"域名解析IP失败，建议从其他结果获取IP后进行查询或前往微步在线查询"
+                return
+        else:
+            ip = self.target
         weibu_url = "https://api.threatbook.cn/v3/scene/ip_reputation"
         query = {
             "apikey": ip,
