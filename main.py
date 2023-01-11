@@ -112,7 +112,6 @@ class WinGUI(Tk):
         word = f"{typ[self.method]}=\"{self.target}\""
         query = b64encode(word.encode()).decode()
         fofa_url = f"https://fofa.info/api/v1/search/all?email={self.tk_tabs.tk_tabs_config.fofa_mail.get()}&key={self.tk_tabs.tk_tabs_config.fofa_key.get()}&qbase64={query}&fields=host,ip,title,country_name,province,city,icp,protocol,isp"
-        print(fofa_url)
         try:
             [self.tk_tabs.tk_tabs_fofa.tk_table.delete(item) for item in
              self.tk_tabs.tk_tabs_fofa.tk_table.get_children()]
