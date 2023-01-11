@@ -1,2 +1,2 @@
 httpx==0.23.0
-ttkbootstrap=1.9.0
+ttkbootstrap==1.9.0
