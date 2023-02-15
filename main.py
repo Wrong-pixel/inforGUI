@@ -71,7 +71,7 @@ class WinGUI(Tk):
         # 如果查询目标选择的是IP，就进行IP格式检查
         if self.method == "IP":
             try:
-                IPv4Address(self.target)
+                IPv4Address(self.target.replace("\n", ""))
             except:
                 showerror(title="error", message="IP输入有误！")
                 return
@@ -475,6 +475,7 @@ class Frame_results(Frame):
 
     def __get_value_label(self, event):
         try:
+            print(event)
             root.clipboard_clear()
             root.clipboard_append(self.tk_label['text'])
         except:
