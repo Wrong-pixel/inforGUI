@@ -63,7 +63,7 @@ class WinGUI(Tk):
     def __schedule(self):
         # 每次进行查询都保存一次config
         self.__save_config()
-        self.target = self.tk_input_ip.get()
+        self.target = self.tk_input_ip.get().replace("\n", "")
         self.method = self.selector.get()
         if self.target == "":
             showerror(title="Error", message="请输入目标!")
@@ -71,7 +71,7 @@ class WinGUI(Tk):
         # 如果查询目标选择的是IP，就进行IP格式检查
         if self.method == "IP":
             try:
-                IPv4Address(self.target.replace("\n", ""))
+                IPv4Address(self.target)
             except:
                 showerror(title="error", message="IP输入有误！")
                 return
